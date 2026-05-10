@@ -1,0 +1,40 @@
+#crosshair {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 28px;
+    color: rgba(255, 255, 255, 0.85);
+    text-shadow: 2px 2px 4px black;
+    pointer-events: none;
+    z-index: 10;
+}
+#ammoDisplay {
+    position: absolute;
+    bottom: 30px;
+    right: 30px;
+    color: #ddd;
+    font-size: 24px;
+    text-shadow: 2px 2px black;
+    z-index: 10;
+}
+#healthDisplay {
+    position: absolute;
+    bottom: 30px;
+    left: 30px;
+    color: #f66;
+    font-size: 24px;
+    text-shadow: 2px 2px black;
+    z-index: 10;
+}
+#messageDisplay {
+    position: absolute;
+    top: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #ff0;
+    font-size: 20px;
+    text-shadow: 2px 2px black;
+    z-index: 10;
+    text-align: center;
+}

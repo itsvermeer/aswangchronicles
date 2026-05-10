@@ -1,0 +1,23 @@
+#jumpscareOverlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(150, 0, 0, 0.85);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 200;
+    pointer-events: none;
+}
+#jumpscareText {
+    font-size: 100px;
+    color: #ffdbdb;
+    text-shadow: 0 0 40px black, 0 0 80px red;
+    animation: shake 0.25s infinite alternate;
+}
+@keyframes shake {
+    from { transform: translate(-5px, -5px) rotate(-1deg); }
+    to   { transform: translate(5px, 5px) rotate(1deg); }
+}

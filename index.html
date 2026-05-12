@@ -23,33 +23,31 @@
         </div>
     </div>
 
-    <!-- Game canvas -->
     <canvas id="gameCanvas"></canvas>
 
-    <!-- HUD (Top: HP, AMMO, MINIMAP) -->
-    <div id="topHUD">
-        <div id="healthDisplay">❤️ 100</div>
-        <div id="ammoDisplay">🔫 12 / 12</div>
+    <!-- HUD -->
+    <div id="csTopHUD">
+        <div class="csHudBox" id="healthBox">❤️ 100</div>
+        <div class="csHudBox" id="ammoBox">🔫 12 / 12</div>
     </div>
-    <div id="weaponDisplay">🔫 Pistol</div>
+    <div id="weaponName">Pistol</div>
     <div id="messageDisplay"></div>
     <canvas id="minimapCanvas" width="128" height="128"></canvas>
 
-    <!-- Crosshair -->
-    <div id="crosshair">＋</div>
-
-    <!-- Jumpscare overlay -->
-    <div id="jumpscareOverlay">
-        <div id="jumpscareText">HALA!</div>
+    <!-- CS‑like crosshair -->
+    <div id="crosshair">
+        <div class="crossLine top"></div>
+        <div class="crossLine left"></div>
+        <div class="crossLine center"></div>
+        <div class="crossLine right"></div>
+        <div class="crossLine bottom"></div>
     </div>
 
-    <!-- MOBILE CONTROLS (hidden on desktop) -->
+    <div id="jumpscareOverlay"><div id="jumpscareText">HALA!</div></div>
+
+    <!-- MOBILE CONTROLS -->
     <div id="mobileControls" style="display:none;">
-        <!-- LEFT SIDE: Joystick -->
-        <div id="joystickZone">
-            <div id="joystickThumb"></div>
-        </div>
-        <!-- RIGHT SIDE: Action Buttons -->
+        <div id="joystickZone"><div id="joystickThumb"></div></div>
         <div id="actionButtons">
             <button id="btnFire">🔫</button>
             <button id="btnAim">🎯</button>
@@ -58,12 +56,9 @@
         </div>
     </div>
 
-    <!-- Babylon.js -->
     <script src="https://cdn.babylonjs.com/babylon.js"></script>
     <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
     <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
-
-    <!-- Game modules -->
     <script type="module" src="js/main.js"></script>
 </body>
 </html>

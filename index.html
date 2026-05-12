@@ -9,14 +9,37 @@
     <link rel="stylesheet" href="css/hud.css">
 </head>
 <body>
+    <!-- Start Menu -->
+    <div id="startMenu">
+        <div id="menuContent">
+            <h1>Aswang Chronicles</h1>
+            <p>Horror FPP Survival</p>
+            <button id="playButton">PLAY</button>
+            <div id="menuInstructions">
+                WASD = Move | Mouse = Look | Left-click = Fire<br>
+                1‑4 = Switch Weapon | R = Reload
+            </div>
+        </div>
+    </div>
+
     <!-- Game canvas -->
     <canvas id="gameCanvas"></canvas>
 
-    <!-- HUD (crosshair, ammo, health) -->
+    <!-- HUD (crosshair, ammo, health, weapon name) -->
     <div id="crosshair">＋</div>
-    <div id="ammoDisplay">🔫 7 / 7</div>
+    <div id="weaponDisplay">🔫 Pistol</div>
+    <div id="ammoDisplay">7 / 7</div>
     <div id="healthDisplay">❤️ 100</div>
     <div id="messageDisplay"></div>
+
+    <!-- Mobile Controls (hidden by default) -->
+    <div id="mobileControls" style="display:none;">
+    <div id="joystickZone">
+    <div id="joystickThumb"></div>
+    </div>
+        <button id="shootButton">🔫</button>
+        <button id="jumpButton">⬆️</button>
+    </div>
 
     <!-- Jumpscare overlay -->
     <div id="jumpscareOverlay">
@@ -26,8 +49,8 @@
     <!-- Babylon.js CDN -->
     <script src="https://cdn.babylonjs.com/babylon.js"></script>
     <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
 
-    <!-- Game modules (type="module" requires server) -->
     <script type="module" src="js/main.js"></script>
 </body>
 </html>

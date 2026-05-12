@@ -1,165 +1,269 @@
 import { createPlayer } from './player.js';
-import { createAswang } from './enemies.js';
 import { WeaponSystem } from './weapons.js';
 import { AIController } from './ai.js';
-import { setupLighting } from './lighting.js';
-import { initAudio } from './audio.js';
+import { setupLighting, createFlashlight } from './lighting.js';
+import { initAudio, startHorrorAmbient } from './audio.js';
 import { JumpscareManager } from './jumpscare.js';
 import { initMultiplayer } from './multiplayer.js';
 
 const canvas = document.getElementById('gameCanvas');
-const engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
+const engine = new BABYLON.Engine(canvas, true);
 const scene = new BABYLON.Scene(engine);
 scene.clearColor = new BABYLON.Color4(0.02, 0.02, 0.03, 1);
 scene.fogMode = BABYLON.Scene.FOGMODE_EXP2;
-scene.fogDensity = 0.015;
-scene.fogColor = new BABYLON.Color3(0.02, 0.02, 0.03);
+scene.fogDensity = 0.003;
+scene.fogColor = new BABYLON.Color3(0.08, 0.08, 0.1);
 
-// ----- Simple procedural map (dark barangay) -----
-function buildMap() {
-    const ground = BABYLON.MeshBuilder.CreateGround("ground", { width: 40, height: 40 }, scene);
-    const groundMat = new BABYLON.StandardMaterial("groundMat", scene);
-    groundMat.diffuseColor = new BABYLON.Color3(0.15, 0.12, 0.08);
-    ground.material = groundMat;
-    ground.receiveShadows = true;
+// UI
+const ammoEl = document.getElementById('ammoDisplay');
+const healthEl = document.getElementById('healthDisplay');
+const weaponEl = document.getElementById('weaponDisplay');
+const messageEl = document.getElementById('messageDisplay');
+const startMenu = document.getElementById('startMenu');
 
-    // Creepy ruined walls
-    const wallMat = new BABYLON.StandardMaterial("wallMat", scene);
-    wallMat.diffuseColor = new BABYLON.Color3(0.3, 0.25, 0.2);
-    const addWall = (x, z, w, h, d, rotY = 0) => {
-        const wall = BABYLON.MeshBuilder.CreateBox("wall", { width: w, height: h, depth: d }, scene);
-        wall.position.set(x, h/2, z);
-        wall.rotation.y = rotY;
-        wall.material = wallMat;
-        wall.checkCollisions = true;
-        wall.receiveShadows = true;
-    };
+let player, weapons, jumpscare;
+let gameStarted = false;
+let playerHealth = 100;
+let lastDamageTime = 0;
+let enemies = [];
+let aiControllers = [];
 
-    // Outer boundary
-    for (let i = -19; i <= 19; i += 2.5) {
-        addWall(i, -19.5, 2, 3, 0.5);
-        addWall(i, 19.5, 2, 3, 0.5);
-        addWall(-19.5, i, 0.5, 3, 2);
-        addWall(19.5, i, 0.5, 3, 2);
+// ---------- Build Map with your models ----------
+async function buildMap() {
+    // 1. Ground (hidden inside forest model, but keep for collisions)
+    const ground = BABYLON.MeshBuilder.CreateGround("ground", { width: 200, height: 200 }, scene);
+    ground.isVisible = false;   // the forest model contains its own ground
+    ground.checkCollisions = true;
+
+    // 2. Load the whole forest scene
+    try {
+        const forest = await BABYLON.SceneLoader.ImportMeshAsync(
+            null,
+            "assets/models/",
+            "forest.glb",
+            scene
+        );
+        // Position the forest (adjust if needed)
+        forest.transformNodes[0].position.set(0, 0, 0);
+        forest.transformNodes[0].scaling.setAll(1.0);
+        // Enable collisions on all forest meshes (walls, trees, etc.)
+        forest.meshes.forEach(m => {
+            m.checkCollisions = true;
+            m.receiveShadows = true;
+        });
+    } catch (e) {
+        console.error("Forest model not found!", e);
+        // Fallback: procedural terrain
+        const fallbackGround = BABYLON.MeshBuilder.CreateGround("ground", { width: 200, height: 200 }, scene);
+        const gMat = new BABYLON.StandardMaterial("gMat", scene);
+        gMat.diffuseColor = new BABYLON.Color3(0.1, 0.15, 0.05);
+        fallbackGround.material = gMat;
+        fallbackGround.checkCollisions = true;
     }
-    // Inner structures
-    addWall(-7, -8, 8, 2.8, 0.5);
-    addWall(8, 6, 6, 2.8, 0.5, Math.PI/3);
-    addWall(-11, 10, 5, 2.5, 0.5, -Math.PI/4);
-    addWall(0, 0, 6, 2.5, 0.5);
-    // Old trees (simple pillars)
-    for (let i = 0; i < 8; i++) {
-        const angle = (i / 8) * Math.PI * 2 + 0.5;
-        const r = 12;
-        const x = Math.cos(angle) * r, z = Math.sin(angle) * r;
-        const trunk = BABYLON.MeshBuilder.CreateCylinder("tree", { height: 4, diameter: 0.5 }, scene);
-        trunk.position.set(x, 2, z);
-        trunk.material = wallMat;
-        trunk.checkCollisions = true;
+
+    // 3. Load the abandoned house
+    try {
+        const house = await BABYLON.SceneLoader.ImportMeshAsync(
+            null,
+            "assets/models/",
+            "Abandoned_House.glb",
+            scene
+        );
+        house.meshes.forEach(m => {
+            m.checkCollisions = true;
+            m.receiveShadows = true;
+        });
+        house.transformNodes[0].position.set(-40, 0, -45);
+        house.transformNodes[0].scaling.setAll(0.9);
+    } catch (e) {
+        console.warn("Abandoned house model missing");
     }
 }
 
-// ----- Game state -----
-let player, aswang, weapons, ai, jumpscare;
-let ammo = 7;
-const MAX_AMMO = 7;
+// ---------- Spawn enemies using Aswang1.fbx ----------
+async function spawnEnemy() {
+    if (!player) return;
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 25 + Math.random() * 20;
+    let x = player.camera.position.x + Math.cos(angle) * dist;
+    let z = player.camera.position.z + Math.sin(angle) * dist;
+    // Keep inside map bounds
+    x = Math.max(-95, Math.min(95, x));
+    z = Math.max(-95, Math.min(95, z));
 
-// UI elements
-const ammoEl = document.getElementById('ammoDisplay');
-const healthEl = document.getElementById('healthDisplay');
-const messageEl = document.getElementById('messageDisplay');
+    try {
+        const result = await BABYLON.SceneLoader.ImportMeshAsync(
+            null,
+            "assets/models/",
+            "Aswang1.fbx",
+            scene
+        );
+        const root = result.transformNodes[0];
+        root.position.set(x, 0, z);
+        root.isMoving = false;
+        // Make all meshes collidable (though they won't block player much)
+        result.meshes.forEach(m => m.checkCollisions = true);
+        enemies.push(root);
+        aiControllers.push(new AIController(root, player.camera, scene));
+    } catch (e) {
+        console.error("Aswang1.fbx not found or failed to load:", e);
+        // Spawn a simple fallback enemy if needed
+    }
+}
+
+async function spawnInitialEnemies() {
+    // Spawn 4 Aswangs
+    for (let i = 0; i < 4; i++) {
+        await spawnEnemy();
+    }
+}
+
+// ---------- Health / HUD / Shooting (unchanged) ----------
+function damagePlayer(amount) {
+    if (playerHealth <= 0) return;
+    playerHealth = Math.max(0, playerHealth - amount);
+    updateHUD();
+    if (playerHealth <= 0) {
+        showMessage("PATAY KA NA...", 4000);
+        setTimeout(() => location.reload(), 4500);
+    }
+}
 
 function updateHUD() {
-    ammoEl.textContent = `🔫 ${ammo} / ${MAX_AMMO}`;
-    healthEl.textContent = `❤️ 100`;
+    if (!weapons) return;
+    const w = weapons.currentWeapon;
+    if (weaponEl) weaponEl.textContent = `${w.icon} ${w.name}`;
+    if (ammoEl) ammoEl.textContent = (w.ammo === Infinity) ? '∞' : `${w.ammo} / ${w.maxAmmo}`;
+    if (healthEl) healthEl.textContent = `❤️ ${playerHealth}`;
 }
 
 function showMessage(text, duration = 2000) {
-    messageEl.textContent = text;
-    setTimeout(() => { messageEl.textContent = ''; }, duration);
+    if (messageEl) {
+        messageEl.textContent = text;
+        setTimeout(() => { if (messageEl) messageEl.textContent = ''; }, duration);
+    }
 }
 
-// Shooting callback (called from weapons.js)
 function onShoot(hitInfo) {
-    if (ammo <= 0) {
-        showMessage("Walang bala!");
-        return false;
+    if (hitInfo.empty) { showMessage("Walang bala! Mag-reload (R)"); return; }
+    if (hitInfo.melee) {
+        for (let i = enemies.length - 1; i >= 0; i--) {
+            const enemy = enemies[i];
+            if (enemy && !enemy.isDisposed()) {
+                const dist = BABYLON.Vector3.Distance(enemy.position, player.camera.position);
+                if (dist < 2.5) { destroyEnemy(i); showMessage("Pinatay mo ang kalaban!", 2500); return; }
+            }
+        }
+        showMessage("Wala sa abot!"); return;
     }
-    ammo--;
-    updateHUD();
     if (hitInfo?.hit && hitInfo.pickedMesh) {
-        // Check if it's the aswang
         let node = hitInfo.pickedMesh;
         while (node) {
-            if (node.name === 'aswang_root') {
-                destroyAswang();
-                showMessage("Patay na ang Aswang!", 3000);
-                break;
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                const enemy = enemies[i];
+                if (enemy && !enemy.isDisposed() && isDescendantOf(node, enemy)) {
+                    destroyEnemy(i); showMessage("Napatay ang kalaban!", 2500); return;
+                }
             }
             node = node.parent;
         }
     }
-    return true;
 }
 
-function destroyAswang() {
-    if (aswang) {
-        aswang.dispose();
-        aswang = null;
-        ai.setTarget(null);
-        // Respawn after a while
-        setTimeout(() => {
-            if (!aswang) {
-                aswang = createAswang(scene, player.camera.position);
-                ai.setTarget(aswang);
-                showMessage("May bagong Aswang...");
-            }
-        }, 8000);
-    }
+function isDescendantOf(mesh, root) {
+    let current = mesh;
+    while (current) { if (current === root) return true; current = current.parent; }
+    return false;
 }
 
-// Reload on 'R' key
+function destroyEnemy(index) {
+    const enemy = enemies[index];
+    if (enemy) { enemy.dispose(); enemies.splice(index, 1); aiControllers.splice(index, 1); }
+    // Respawn after a while
+    setTimeout(() => { if (gameStarted && player) spawnEnemy(); }, 8000);
+}
+
+// ---------- Reload ----------
 window.addEventListener('keydown', (e) => {
     if (e.key === 'r' || e.key === 'R') {
-        ammo = MAX_AMMO;
+        if (!gameStarted || !weapons) return;
+        const w = weapons.currentWeapon;
+        if (w.type === 'melee') return;
+        w.ammo = w.maxAmmo;
         updateHUD();
         showMessage("Nagreload!", 1000);
     }
 });
 
-// ----- Initialization -----
-buildMap();
-setupLighting(scene);
-initAudio();
+// ---------- Init Game ----------
+async function initGame() {
+    if (!gameStarted) return;
 
-player = createPlayer(canvas, scene);
-weapons = new WeaponSystem(scene, player.camera, onShoot);
-aswang = createAswang(scene, player.camera.position);
-ai = new AIController(aswang, player.camera, scene);
+    await buildMap();
+    setupLighting(scene);
+    initAudio();
 
-jumpscare = new JumpscareManager(
-    document.getElementById('jumpscareOverlay'),
-    document.getElementById('jumpscareText'),
-    player.camera
-);
+    player = createPlayer(canvas, scene);
+    player.camera.position = new BABYLON.Vector3(0, 1.7, 0);
+    createFlashlight(player.camera, scene);
 
-// Check jumpscare distance
-scene.onBeforeRenderObservable.add(() => {
-    if (!aswang || aswang.isDisposed()) return;
-    const dist = BABYLON.Vector3.Distance(aswang.position, player.camera.position);
-    if (dist < 1.8) {
-        jumpscare.trigger();
-        destroyAswang();
+    weapons = new WeaponSystem(scene, player.camera, onShoot, updateHUD);
+
+    await spawnInitialEnemies();
+
+    jumpscare = new JumpscareManager(
+        document.getElementById('jumpscareOverlay'),
+        document.getElementById('jumpscareText'),
+        player.camera
+    );
+
+    scene.onBeforeRenderObservable.add(() => {
+        if (!player || playerHealth <= 0) return;
+        for (let i = aiControllers.length - 1; i >= 0; i--) {
+            if (enemies[i] && !enemies[i].isDisposed()) {
+                aiControllers[i].update();
+                const dist = BABYLON.Vector3.Distance(enemies[i].position, player.camera.position);
+                if (dist < 1.8) {
+                    jumpscare.trigger();
+                    damagePlayer(30);
+                    destroyEnemy(i); continue;
+                }
+                if (dist < 2.5) {
+                    const now = performance.now();
+                    if (now - lastDamageTime > 1000) {
+                        damagePlayer(8);
+                        showMessage("Inaatake ka!");
+                        lastDamageTime = now;
+                    }
+                }
+            }
+        }
+    });
+
+    initMultiplayer();
+    engine.runRenderLoop(() => scene.render());
+    window.addEventListener('resize', () => engine.resize());
+    updateHUD();
+}
+
+// ---------- Start Game ----------
+function startGame() {
+    try {
+        if (startMenu) startMenu.style.display = 'none';
+        gameStarted = true;
+        canvas.requestPointerLock();
+        initGame();
+        startHorrorAmbient();
+    } catch (e) {
+        console.error('Game start failed:', e);
+        if (startMenu) startMenu.style.display = 'flex';
+        alert('Failed to start: ' + e.message);
     }
-});
+}
 
-// Multiplayer placeholder
-initMultiplayer();
-
-// Start
-engine.runRenderLoop(() => scene.render());
-window.addEventListener('resize', () => engine.resize());
-
-// Click to lock pointer
-canvas.addEventListener('click', () => canvas.requestPointerLock());
-updateHUD();
+window.startGame = startGame;
+const playButton = document.getElementById('playButton');
+if (playButton) {
+    playButton.addEventListener('click', startGame);
+    playButton.addEventListener('touchend', (e) => { e.preventDefault(); startGame(); });
+}

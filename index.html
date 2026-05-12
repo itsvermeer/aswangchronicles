@@ -16,8 +16,9 @@
             <p>Horror FPP Survival</p>
             <button id="playButton">PLAY</button>
             <div id="menuInstructions">
-                WASD = Move | Mouse = Look | Left-click = Fire<br>
-                1‑4 = Switch Weapon | R = Reload
+                WASD = Move | Mouse = Look | Left‑click = Fire<br>
+                1‑4 = Switch Weapon | R = Reload | Space = Jump<br>
+                C = Crouch | X = Sit | Tab = Flashlight
             </div>
         </div>
     </div>
@@ -25,32 +26,44 @@
     <!-- Game canvas -->
     <canvas id="gameCanvas"></canvas>
 
-    <!-- HUD (crosshair, ammo, health, weapon name) -->
-    <div id="crosshair">＋</div>
+    <!-- HUD (Top: HP, AMMO, MINIMAP) -->
+    <div id="topHUD">
+        <div id="healthDisplay">❤️ 100</div>
+        <div id="ammoDisplay">🔫 12 / 12</div>
+    </div>
     <div id="weaponDisplay">🔫 Pistol</div>
-    <div id="ammoDisplay">7 / 7</div>
-    <div id="healthDisplay">❤️ 100</div>
     <div id="messageDisplay"></div>
+    <canvas id="minimapCanvas" width="128" height="128"></canvas>
 
-    <!-- Mobile Controls (hidden by default) -->
-    <div id="mobileControls" style="display:none;">
-    <div id="joystickZone">
-    <div id="joystickThumb"></div>
-    </div>
-        <button id="shootButton">🔫</button>
-        <button id="jumpButton">⬆️</button>
-    </div>
+    <!-- Crosshair -->
+    <div id="crosshair">＋</div>
 
     <!-- Jumpscare overlay -->
     <div id="jumpscareOverlay">
         <div id="jumpscareText">HALA!</div>
     </div>
 
-    <!-- Babylon.js CDN -->
+    <!-- MOBILE CONTROLS (hidden on desktop) -->
+    <div id="mobileControls" style="display:none;">
+        <!-- LEFT SIDE: Joystick -->
+        <div id="joystickZone">
+            <div id="joystickThumb"></div>
+        </div>
+        <!-- RIGHT SIDE: Action Buttons -->
+        <div id="actionButtons">
+            <button id="btnFire">🔫</button>
+            <button id="btnAim">🎯</button>
+            <button id="btnReload">🔄</button>
+            <button id="btnFlashlight">🔦</button>
+        </div>
+    </div>
+
+    <!-- Babylon.js -->
     <script src="https://cdn.babylonjs.com/babylon.js"></script>
     <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
     <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
 
+    <!-- Game modules -->
     <script type="module" src="js/main.js"></script>
 </body>
 </html>
